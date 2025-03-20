@@ -5,5 +5,6 @@ const teamSchema = new mongoose.Schema({
   // owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   // members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   members: [{ type: String }],
+  tasks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Task' }],
 });
 export default mongoose.model('Team', teamSchema);
