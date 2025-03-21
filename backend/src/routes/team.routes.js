@@ -42,4 +42,14 @@ router.post('/join-team', requireAuth(), async (req, res) => {
       res.status(500).json({ error: err.message });
     }
   });
+  router.get('/get-teams', requireAuth(), async (req, res) => {
+    const { userId } = getAuth(req);
+    try {
+      const teams = await Team.find({ members: userId });
+      res.status(200).json(teams);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 export default router;

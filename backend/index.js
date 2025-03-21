@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { clerkClient, requireAuth, getAuth } from '@clerk/express'
+import User from './src/models/user.model.js';
 // const { ClerkExpressRequireAuth, getAuth } = require('@clerk/clerk-sdk-node');
 const app = express()
 const PORT = 3000
@@ -22,7 +23,10 @@ app.get('/protected', requireAuth(), async (req, res) => {
 
   // Use Clerk's JavaScript Backend SDK to get the user's User object
   const user = await clerkClient.users.getUser(userId)
-
+console.log(user.firstName);
+if (!(await User.findOne({ userId: user.id }))) {
+  await User.create({ name: user.firstName, userId: user.id });
+}
   return res.json({ user })
 })
 import teamRoutes from './src/routes/team.routes.js';
