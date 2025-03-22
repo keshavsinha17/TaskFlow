@@ -1,6 +1,6 @@
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react'
 import Home from '../dummycall'
-
+import Dashboard from './pages/Dashboard'
 export default function App() {
   return (
     <header>
@@ -10,7 +10,9 @@ export default function App() {
       </SignedOut>
       <SignedIn>
         <UserButton />
-        <Home/>
+        {/* <Home/> */}
+        <Dashboard/>
+
       </SignedIn>
     </header>
   )
