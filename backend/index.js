@@ -17,23 +17,23 @@ app.use(express.json()); // Add this line to parse JSON request bodies
 
 // Use requireAuth() to protect this route
 // If user isn't authenticated, requireAuth() will redirect back to the homepage
-app.get('/protected', requireAuth(), async (req, res) => {
-  // Use `getAuth()` to get the user's `userId`
-  const { userId } = getAuth(req)
+// app.get('/protected', requireAuth(), async (req, res) => {
+//   // Use `getAuth()` to get the user's `userId`
+//   const { userId } = getAuth(req)
 
-  // Use Clerk's JavaScript Backend SDK to get the user's User object
-  const user = await clerkClient.users.getUser(userId)
-console.log(user.firstName);
-if (!(await User.findOne({ userId: user.id }))) {
-  await User.create({ name: user.firstName, userId: user.id });
-}
-  return res.json({ user })
-})
+//   // Use Clerk's JavaScript Backend SDK to get the user's User object
+//   const user = await clerkClient.users.getUser(userId)
+// console.log(user.firstName);
+// if (!(await User.findOne({ userId: user.id }))) {
+//   await User.create({ name: user.firstName, userId: user.id });
+// }
+//   return res.json({ user })
+// })
 import teamRoutes from './src/routes/team.routes.js';
 import taskRoutes from './src/routes/Task.routes.js';
 import connectDB from './src/db/index.js';
 
-app.use('/api', requireAuth(), teamRoutes);
+// app.use('/api', requireAuth(), teamRoutes);
 
 app.use('/api', requireAuth(), taskRoutes);
 // Start the server and listen on the specified port
