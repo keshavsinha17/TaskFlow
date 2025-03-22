@@ -6,6 +6,7 @@ export default function App() {
     <header>
       <SignedOut>
         <SignInButton />
+      
       </SignedOut>
       <SignedIn>
         <UserButton />
