@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Menu, X, Users, Plus, LogOut } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';

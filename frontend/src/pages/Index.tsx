@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LogOut, Plus, User } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
 
 // Mock data
 interface Team {
@@ -175,8 +176,12 @@ const Index = () => {
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold">TaskSync</h1>
-          <button className="p-1 rounded-full hover:bg-sidebar-accent" aria-label="User profile">
-            <User size={20} />
+          {/* <button className="p-1 rounded-full hover:bg-sidebar-accent" aria-label="User profile"> */}
+          <button className="p-1 rounded-full " aria-label="User profile">
+            {/* <User size={20} /> */}
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </button>
         </div>
       </div>
