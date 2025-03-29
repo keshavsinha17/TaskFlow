@@ -33,7 +33,7 @@ import teamRoutes from './src/routes/team.routes.js';
 import taskRoutes from './src/routes/Task.routes.js';
 import connectDB from './src/db/index.js';
 
-// app.use('/api', requireAuth(), teamRoutes);
+app.use('/api', requireAuth(), teamRoutes);
 
 app.use('/api', requireAuth(), taskRoutes);
 // Start the server and listen on the specified port
