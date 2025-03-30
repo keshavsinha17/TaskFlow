@@ -1,6 +1,6 @@
 import Router from 'express';
 import { requireAuth, getAuth } from "@clerk/express";
-import Task from '../models/Task.model.js';
+import Task from '../models/task.model.js';
 import Team from '../models/Team.model.js';
 
 const router = Router();
