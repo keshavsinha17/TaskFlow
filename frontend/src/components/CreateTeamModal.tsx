@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
+import { useAuth, useUser } from '@clerk/clerk-react';
 interface CreateTeamModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,9 +23,27 @@ const CreateTeamModal: React.FC<CreateTeamModalProps> = ({
       onCreateTeam(teamName);
       setTeamName('');
       onClose();
+      
     }
   };
 
+  const createTeam = async () => {
+    const { user } = useUser();
+    const { getToken } = useAuth();
+    const token = await getToken();
+    const response = await fetch('http://localhost:3000/api/register-team', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', // Ensure this header is set
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ name: teamName}),
+    });
+    const data = await response.json();
+    console.log(data);
+    
+  };
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md animate-scale-in">
