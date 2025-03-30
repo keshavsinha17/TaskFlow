@@ -16,13 +16,26 @@ const taskSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['To-Do', 'In-Progress', 'Done'],
-    default: 'To-Do',
+    enum: ['todo', 'in-progress', 'done'],
+    default: 'todo',
     required: true
   },
-  team: {
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium'
+  },
+  dueDate: {
+    type: Date,
+    default: null
+  },
+  teamId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team',
+    required: true
+  },
+  assignedTo: {
+    type: String, // Clerk userId
     required: true
   },
   createdBy: {
@@ -36,6 +49,10 @@ const taskSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  updatedBy: {
+    type: String, // Clerk userId
+    default: null
   }
 });
 

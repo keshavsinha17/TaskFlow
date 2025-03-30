@@ -1,11 +1,11 @@
 import Router from 'express';
-import { requireAuth, getAuth } from "@clerk/express";
+import { getAuth } from "@clerk/express";
 import Team from '../models/Team.model.js';
 import generateCode from '../utils/generateCode.js';
 const router = Router();
 
 // Get all teams for the authenticated user
-router.get('/', requireAuth(), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { userId } = getAuth(req);
     const teams = await Team.find({ members: userId });
@@ -16,8 +16,32 @@ router.get('/', requireAuth(), async (req, res) => {
   }
 });
 
+// Get a specific team by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = getAuth(req);
+    
+    const team = await Team.findById(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    
+    // Check if user is a member of the team
+    if (!team.members.includes(userId)) {
+      return res.status(403).json({ message: 'You are not a member of this team' });
+    }
+    
+    res.json(team);
+  } catch (error) {
+    console.error('Error fetching team:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Register a new team
-router.post('/register-team', requireAuth(), async (req, res) => {
+router.post('/register-team', async (req, res) => {
   const { name } = req.body;
   const { userId } = getAuth(req);
   
@@ -31,7 +55,7 @@ router.post('/register-team', requireAuth(), async (req, res) => {
 });
 
 // Join an existing team
-router.post('/join-team', requireAuth(), async (req, res) => {
+router.post('/join-team', async (req, res) => {
   const { code } = req.body;
   const { userId } = getAuth(req);
   
@@ -50,6 +74,34 @@ router.post('/join-team', requireAuth(), async (req, res) => {
     res.json(team);
   } catch (error) {
     console.error('Error joining team:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Leave a team
+router.post('/:id/leave', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId } = getAuth(req);
+    
+    const team = await Team.findById(id);
+    
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found' });
+    }
+    
+    // Check if user is a member of the team
+    if (!team.members.includes(userId)) {
+      return res.status(400).json({ message: 'You are not a member of this team' });
+    }
+    
+    // Remove user from team members
+    team.members = team.members.filter(memberId => memberId !== userId);
+    await team.save();
+    
+    res.json({ message: 'Successfully left the team' });
+  } catch (error) {
+    console.error('Error leaving team:', error);
     res.status(500).json({ message: error.message });
   }
 });
