@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import TeamCard from '@/components/TeamCard';
@@ -9,78 +8,105 @@ import TaskToast from '@/components/TaskToast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LogOut, Plus, User } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import { fetchTeams, joinTeam, fetchTasks, createTask, updateTask, deleteTask } from '@/services/taskService';
 
-// Mock data
+// Define interfaces for our data types
 interface Team {
-  id: string;
+  _id: string;
   name: string;
-  memberCount: number;
+  code: string;
+  members: string[];
 }
 
 interface Task {
-  id: string;
+  _id: string;
   title: string;
   description: string;
-  creator: string;
+  priority: 'low' | 'medium' | 'high';
+  dueDate: string;
   status: 'todo' | 'in-progress' | 'done';
+  teamId: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+  updatedBy?: string;
+  assignedTo?: string;
 }
 
-const initialTeams: Team[] = [
-  { id: '1', name: 'Design Team', memberCount: 5 },
-  { id: '2', name: 'Engineering', memberCount: 8 },
-  { id: '3', name: 'Marketing', memberCount: 4 },
-];
-
-const initialTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Design homepage',
-    description: 'Create wireframes for the new homepage design',
-    creator: 'Alice',
-    status: 'todo',
-  },
-  {
-    id: '2',
-    title: 'Fix navigation bug',
-    description: 'Navigation is broken on mobile devices',
-    creator: 'Bob',
-    status: 'todo',
-  },
-  {
-    id: '3',
-    title: 'Implement login',
-    description: 'Add authentication system using JWT',
-    creator: 'Charlie',
-    status: 'in-progress',
-  },
-  {
-    id: '4',
-    title: 'Create API docs',
-    description: 'Document all API endpoints for the team',
-    creator: 'David',
-    status: 'in-progress',
-  },
-  {
-    id: '5',
-    title: 'Update dependencies',
-    description: 'Update all npm packages to latest versions',
-    creator: 'Eve',
-    status: 'done',
-  },
-];
-
 const Index = () => {
-  const [teams, setTeams] = useState<Team[]>(initialTeams);
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [activeTeam, setActiveTeam] = useState<Team | null>(initialTeams[0]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeTeam, setActiveTeam] = useState<Team | null>(null);
   const [isCreateTeamModalOpen, setIsCreateTeamModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [currentTask, setCurrentTask] = useState<Task | undefined>(undefined);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [defaultStatus, setDefaultStatus] = useState<'todo' | 'in-progress' | 'done'>('todo');
   const [joinTeamCode, setJoinTeamCode] = useState('');
-  const [toast, setToast] = useState<{ message: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isJoiningTeam, setIsJoiningTeam] = useState(false);
+  
+  const { toast } = useToast();
+  const { getToken } = useAuth();
+  const { user } = useUser();
+
+  // Fetch teams on component mount
+  useEffect(() => {
+    const loadTeams = async () => {
+      try {
+        setIsLoading(true);
+        const token = await getToken();
+        if (!token) return;
+        
+        const teamsData = await fetchTeams(token);
+        setTeams(teamsData);
+        
+        // Set active team to the first team if available
+        if (teamsData.length > 0 && !activeTeam) {
+          setActiveTeam(teamsData[0]);
+        }
+      } catch (error) {
+        console.error('Error loading teams:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load teams. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTeams();
+  }, [getToken]);
+
+  // Fetch tasks when active team changes
+  useEffect(() => {
+    const loadTasks = async () => {
+      if (!activeTeam) return;
+      
+      try {
+        setIsLoading(true);
+        const token = await getToken();
+        if (!token) return;
+        
+        const tasksData = await fetchTasks(activeTeam._id, token);
+        setTasks(tasksData);
+      } catch (error) {
+        console.error('Error loading tasks:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load tasks. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadTasks();
+  }, [activeTeam, getToken]);
 
   // Filter tasks by status
   const todoTasks = tasks.filter((task) => task.status === 'todo');
@@ -88,86 +114,199 @@ const Index = () => {
   const doneTasks = tasks.filter((task) => task.status === 'done');
 
   // Team handlers
-  const handleCreateTeam = (teamName: string) => {
-    const newTeam = {
-      id: uuidv4(),
-      name: teamName,
-      memberCount: 1,
-    };
-    setTeams([...teams, newTeam]);
-    setActiveTeam(newTeam);
-    showToast(`Team "${teamName}" created successfully`);
-  };
-
-  const handleJoinTeam = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (joinTeamCode.trim()) {
-      // This would connect to a real API in a production app
-      showToast(`Joined team with code: ${joinTeamCode}`);
-      setJoinTeamCode('');
+  const handleCreateTeam = async (teamName: string) => {
+    // The actual API call is handled in the CreateTeamModal component
+    // This function is called after a successful team creation
+    try {
+      const token = await getToken();
+      if (!token) return;
+      
+      // Refresh the teams list
+      const teamsData = await fetchTeams(token);
+      setTeams(teamsData);
+      
+      // Set the newly created team as active
+      const newTeam = teamsData.find(t => t.name === teamName);
+      if (newTeam) {
+        setActiveTeam(newTeam);
+      }
+      
+      toast({
+        title: 'Success',
+        description: `Team "${teamName}" created successfully`,
+      });
+    } catch (error) {
+      console.error('Error refreshing teams:', error);
     }
   };
 
-  const handleLeaveTeam = () => {
-    if (!activeTeam) return;
+  const handleJoinTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinTeamCode.trim()) return;
     
-    const remaining = teams.filter((team) => team.id !== activeTeam.id);
-    setTeams(remaining);
-    setActiveTeam(remaining.length > 0 ? remaining[0] : null);
-    showToast(`You left team "${activeTeam.name}"`);
+    setIsJoiningTeam(true);
+    try {
+      const token = await getToken();
+      if (!token) return;
+      
+      // Call API to join team
+      const joinedTeam = await joinTeam(joinTeamCode, token);
+      
+      // Refresh teams list
+      const teamsData = await fetchTeams(token);
+      setTeams(teamsData);
+      
+      // Set the joined team as active
+      setActiveTeam(joinedTeam);
+      
+      // Reset form and show success message
+      setJoinTeamCode('');
+      toast({
+        title: 'Success',
+        description: `Joined team "${joinedTeam.name}" successfully`,
+      });
+    } catch (error) {
+      console.error('Error joining team:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to join team. Please check the code and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsJoiningTeam(false);
+    }
   };
 
   // Task handlers
   const handleAddTask = (status: 'todo' | 'in-progress' | 'done') => {
-    setCurrentTask(undefined);
+    setEditingTask(undefined);
     setDefaultStatus(status);
     setIsTaskModalOpen(true);
   };
 
   const handleEditTask = (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
+    const task = tasks.find((t) => t._id === taskId);
     if (task) {
-      setCurrentTask(task);
+      setEditingTask(task);
       setIsTaskModalOpen(true);
     }
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const taskToDelete = tasks.find((t) => t.id === taskId);
-    setTasks(tasks.filter((task) => task.id !== taskId));
-    if (taskToDelete) {
-      showToast(`Task "${taskToDelete.title}" deleted`);
+  const handleDeleteTask = async (taskId: string) => {
+    if (!activeTeam) return;
+    
+    try {
+      const token = await getToken();
+      if (!token) return;
+      
+      // Call API to delete task
+      await deleteTask(taskId, token);
+      
+      // Update local state
+      setTasks(tasks.filter(task => task._id !== taskId));
+      
+      toast({
+        title: 'Success',
+        description: 'Task deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete task. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
-  const handleSaveTask = (taskData: Partial<Task> & { title: string; description: string; status: 'todo' | 'in-progress' | 'done' }) => {
-    if (currentTask) {
-      // Edit existing task
-      setTasks(
-        tasks.map((task) =>
-          task.id === currentTask.id
-            ? { ...task, ...taskData }
-            : task
-        )
-      );
-      showToast(`Task "${taskData.title}" updated`);
-    } else {
-      // Add new task
-      const newTask = {
-        id: uuidv4(),
-        title: taskData.title,
-        description: taskData.description,
-        status: taskData.status,
-        creator: 'You', // In a real app, this would be the current user
-      };
-      setTasks([...tasks, newTask]);
-      showToast(`Task "${newTask.title}" created`);
+  const handleSaveTask = async (taskData: Partial<Task>) => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      if (editingTask) {
+        // Update existing task
+        const updatedTask = await updateTask(editingTask._id, taskData, token);
+        
+        // Update local state
+        setTasks(tasks.map(task => 
+          task._id === updatedTask._id ? updatedTask : task
+        ));
+        
+        toast({
+          title: 'Success',
+          description: `Task "${taskData.title}" updated successfully`,
+        });
+      } else {
+        // Create new task
+        const newTaskData: {
+          title: string;
+          description: string;
+          priority: string;
+          dueDate: string;
+          status: string;
+          teamId: string;
+          assignedTo?: string;
+        } = {
+          ...taskData as any,
+          teamId: activeTeam!._id,
+          assignedTo: user?.id
+        };
+        
+        const newTask = await createTask(newTaskData, token);
+        
+        // Update local state
+        setTasks([...tasks, newTask]);
+        
+        toast({
+          title: 'Success',
+          description: `Task "${taskData.title}" created successfully`,
+        });
+      }
+    } catch (error) {
+      console.error('Error saving task:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save task. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTaskModalOpen(false);
+      setEditingTask(null);
     }
   };
 
-  // Toast handler
-  const showToast = (message: string) => {
-    setToast({ message });
+  const handleTaskStatusChange = async (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
+    try {
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+      
+      const taskToUpdate = tasks.find(task => task._id === taskId);
+      if (!taskToUpdate) return;
+      
+      const updatedTask = await updateTask(taskId, { status: newStatus }, token);
+      
+      // Update local state
+      setTasks(tasks.map(task => 
+        task._id === updatedTask._id ? updatedTask : task
+      ));
+      
+      toast({
+        title: 'Success',
+        description: `Task status updated to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update task status. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Sidebar component
@@ -175,14 +314,14 @@ const Index = () => {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">TaskSync</h1>
-          {/* <button className="p-1 rounded-full hover:bg-sidebar-accent" aria-label="User profile"> */}
-          <button className="p-1 rounded-full " aria-label="User profile">
-            {/* <User size={20} /> */}
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-          </button>
+          <h1 className="text-xl font-semibold">TaskFlow</h1>
+          <div className="flex items-center space-x-2">
+            {user && (
+              <span className="text-sm text-muted-foreground">
+                {user.firstName}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -192,32 +331,39 @@ const Index = () => {
           <div className="space-y-2">
             {teams.map((team) => (
               <TeamCard
-                key={team.id}
+                key={team._id}
                 name={team.name}
-                memberCount={team.memberCount}
+                memberCount={team.members.length}
+                isActive={activeTeam?._id === team._id}
                 onClick={() => setActiveTeam(team)}
               />
             ))}
           </div>
+          <Button
+            onClick={() => setIsCreateTeamModalOpen(true)}
+            className="w-full mt-2 bg-sidebar-accent hover:bg-sidebar-accent/80"
+            variant="ghost"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Team
+          </Button>
         </div>
 
-        <div className="space-y-3">
-          <Button
-            className="w-full bg-primary hover:bg-primary/90 text-white"
-            onClick={() => setIsCreateTeamModalOpen(true)}
-          >
-            <Plus size={16} className="mr-1" /> Create Team
-          </Button>
-
-          <form onSubmit={handleJoinTeam} className="space-y-2">
+        <div className="mb-6">
+          <h2 className="text-sm font-medium text-muted-foreground mb-2">JOIN TEAM</h2>
+          <form onSubmit={handleJoinTeam} className="flex flex-col space-y-2">
             <Input
               placeholder="Enter team code"
               value={joinTeamCode}
               onChange={(e) => setJoinTeamCode(e.target.value)}
-              className="w-full"
+              disabled={isJoiningTeam}
             />
-            <Button type="submit" className="w-full" variant="outline">
-              Join Team
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={!joinTeamCode.trim() || isJoiningTeam}
+            >
+              {isJoiningTeam ? 'Joining...' : 'Join'}
             </Button>
           </form>
         </div>
@@ -227,86 +373,87 @@ const Index = () => {
 
   return (
     <DashboardLayout sidebar={<Sidebar />}>
-      <div className="p-6 max-w-7xl mx-auto">
-        {activeTeam ? (
-          <>
-            <div className="mb-6 flex justify-between items-center">
-              <h1 className="text-2xl font-semibold text-foreground">{activeTeam.name}</h1>
-              <Button
-                variant="outline"
-                className="text-destructive hover:text-destructive border-destructive hover:bg-destructive/10"
-                onClick={handleLeaveTeam}
-              >
-                <LogOut size={16} className="mr-1" /> Leave Team
+      {activeTeam ? (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold">{activeTeam.name}</h1>
+            <div className="flex items-center space-x-2">
+              <div className="text-sm text-muted-foreground">
+                Team Code: <span className="font-mono">{activeTeam.code}</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(activeTeam.code)}>
+                Copy
               </Button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <TaskColumn
-                title="To-Do"
-                tasks={todoTasks}
-                status="todo"
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-              />
-              
-              <TaskColumn
-                title="In Progress"
-                tasks={inProgressTasks}
-                status="in-progress"
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-              />
-              
-              <TaskColumn
-                title="Done"
-                tasks={doneTasks}
-                status="done"
-                onAddTask={handleAddTask}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-              />
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-[80vh]">
-            <h2 className="text-xl font-medium text-center mb-4">
-              You don't have any teams yet
-            </h2>
-            <Button
-              className="bg-primary hover:bg-primary/90 text-white"
-              onClick={() => setIsCreateTeamModalOpen(true)}
-            >
-              <Plus size={16} className="mr-1" /> Create Your First Team
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <TaskColumn
+              title="To Do"
+              tasks={todoTasks}
+              onTaskClick={handleEditTask}
+              onTaskDelete={handleDeleteTask}
+              onStatusChange={handleTaskStatusChange}
+              onAddTask={() => {
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+                setDefaultStatus('todo');
+              }}
+            />
+            <TaskColumn
+              title="In Progress"
+              tasks={inProgressTasks}
+              onTaskClick={handleEditTask}
+              onTaskDelete={handleDeleteTask}
+              onStatusChange={handleTaskStatusChange}
+              onAddTask={() => {
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+                setDefaultStatus('in-progress');
+              }}
+            />
+            <TaskColumn
+              title="Done"
+              tasks={doneTasks}
+              onTaskClick={handleEditTask}
+              onTaskDelete={handleDeleteTask}
+              onStatusChange={handleTaskStatusChange}
+              onAddTask={() => {
+                setEditingTask(null);
+                setIsTaskModalOpen(true);
+                setDefaultStatus('done');
+              }}
+            />
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center justify-center h-full">
+          <h2 className="text-xl font-semibold mb-4">No Team Selected</h2>
+          <p className="text-muted-foreground mb-6 text-center max-w-md">
+            Create a new team or join an existing team to get started with task management.
+          </p>
+          <div className="flex space-x-4">
+            <Button onClick={() => setIsCreateTeamModalOpen(true)}>
+              <Plus size={16} className="mr-2" />
+              Create Team
             </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Modals */}
-        <CreateTeamModal
-          isOpen={isCreateTeamModalOpen}
-          onClose={() => setIsCreateTeamModalOpen(false)}
-          onCreateTeam={handleCreateTeam}
-        />
-
-        <TaskModal
-          isOpen={isTaskModalOpen}
-          onClose={() => setIsTaskModalOpen(false)}
-          onSave={handleSaveTask}
-          task={currentTask}
-          defaultStatus={defaultStatus}
-        />
-
-        {/* Toast Notification */}
-        {toast && (
-          <TaskToast
-            message={toast.message}
-            onClose={() => setToast(null)}
-          />
-        )}
-      </div>
+      {/* Modals */}
+      <CreateTeamModal
+        isOpen={isCreateTeamModalOpen}
+        onClose={() => setIsCreateTeamModalOpen(false)}
+        onCreateTeam={handleCreateTeam}
+      />
+      <TaskModal
+        isOpen={isTaskModalOpen}
+        onClose={() => setIsTaskModalOpen(false)}
+        onSave={handleSaveTask}
+        task={editingTask}
+        defaultStatus={defaultStatus}
+      />
     </DashboardLayout>
   );
 };

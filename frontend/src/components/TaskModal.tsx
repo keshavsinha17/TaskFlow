@@ -5,26 +5,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format } from 'date-fns';
+import { CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface TaskData {
-  id?: string;
+  _id?: string;
   title: string;
   description: string;
   status: 'todo' | 'in-progress' | 'done';
+  priority: 'low' | 'medium' | 'high';
+  dueDate: string;
+  teamId?: string;
+  assignedTo?: string;
 }
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (task: TaskData) => void;
-  task?: TaskData;
+  task?: TaskData | null;
   defaultStatus?: 'todo' | 'in-progress' | 'done';
 }
 
-const defaultTask = {
+const defaultTask: TaskData = {
   title: '',
   description: '',
-  status: 'todo' as const,
+  status: 'todo',
+  priority: 'medium',
+  dueDate: '',
 };
 
 const TaskModal: React.FC<TaskModalProps> = ({
@@ -35,7 +46,7 @@ const TaskModal: React.FC<TaskModalProps> = ({
   defaultStatus,
 }) => {
   const [formData, setFormData] = useState<TaskData>(defaultTask);
-  const isEditing = !!task?.id;
+  const isEditing = !!task?._id;
 
   useEffect(() => {
     if (task) {
@@ -68,6 +79,22 @@ const TaskModal: React.FC<TaskModalProps> = ({
       ...prev, 
       status: value as 'todo' | 'in-progress' | 'done'
     }));
+  };
+
+  const handlePriorityChange = (value: string) => {
+    setFormData((prev) => ({ 
+      ...prev, 
+      priority: value as 'low' | 'medium' | 'high'
+    }));
+  };
+
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setFormData((prev) => ({ 
+        ...prev, 
+        dueDate: date.toISOString()
+      }));
+    }
   };
 
   return (
@@ -120,6 +147,53 @@ const TaskModal: React.FC<TaskModalProps> = ({
                   <SelectItem value="done">Done</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select 
+                value={formData.priority} 
+                onValueChange={handlePriorityChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formData.dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formData.dueDate ? (
+                      format(new Date(formData.dueDate), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={formData.dueDate ? new Date(formData.dueDate) : undefined}
+                    onSelect={handleDateChange}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <DialogFooter>

@@ -1,20 +1,13 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 
-// ✅ Create an Axios instance with a base URL
+// Create an Axios instance with a base URL
 const API: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // ⬅️ Keeps URLs configurable
-  timeout: 10000, // ⬅️ Prevents long-running requests
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000", // Fallback to localhost if env var not set
+  timeout: 10000,
   headers: { "Content-Type": "application/json" },
 });
 
-// ✅ Attach Token Automatically to Every Request
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-// ✅ Handle API Errors Globally
+// Handle API Errors Globally
 API.interceptors.response.use(
   (response) => response,
   (error) => {
